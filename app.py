@@ -1240,14 +1240,119 @@ def render_dashboard(shipments: list, direction_filter: str, status_filter: list
 
 
 # ──────────────────────────────────────────────
-# 사용자 인증
+# 사용자 인증 & 관리
 # ──────────────────────────────────────────────
-USERS = {
+DEFAULT_USERS = {
     "admin": {"password": "ty2026!", "role": "admin", "name": "TY Logistics 관리자"},
     "james": {"password": "james2026", "role": "admin", "name": "James (TY)"},
     "photoism": {"password": "photoism2026", "role": "viewer", "name": "Photoism SCM팀"},
     "viewer": {"password": "view2026", "role": "viewer", "name": "External Viewer"},
 }
+
+USERS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "users_data.json")
+
+
+def load_users():
+    """JSON 파일에서 사용자 데이터 로드. 없으면 기본값 사용."""
+    if os.path.exists(USERS_FILE):
+        try:
+            with open(USERS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {**DEFAULT_USERS}
+
+
+def save_users(users):
+    """사용자 데이터를 JSON 파일에 저장."""
+    with open(USERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(users, f, ensure_ascii=False, indent=2)
+
+
+def render_user_management():
+    """관리자용 사용자 계정 관리 페이지"""
+    st.markdown('<div class="section-title">👥 사용자 계정 관리</div>', unsafe_allow_html=True)
+
+    users = load_users()
+
+    # ── 새 사용자 등록 ──
+    st.markdown("### ➕ 새 사용자 등록")
+    with st.form("new_user_form", clear_on_submit=True):
+        nc1, nc2 = st.columns(2)
+        with nc1:
+            new_id = st.text_input("아이디", placeholder="영문/숫자 조합")
+            new_name = st.text_input("표시 이름", placeholder="예: Photoism 김대리")
+        with nc2:
+            new_pw = st.text_input("비밀번호", type="password", placeholder="6자 이상")
+            new_role = st.selectbox("권한", ["viewer", "admin"], format_func=lambda x: {"viewer": "👁️ 뷰어 (대시보드만)", "admin": "🔑 관리자 (전체 접근)"}[x])
+
+        submitted = st.form_submit_button("✅ 사용자 등록", use_container_width=True, type="primary")
+        if submitted:
+            if not new_id or not new_pw or not new_name:
+                st.error("모든 필드를 입력해 주세요.")
+            elif len(new_pw) < 4:
+                st.error("비밀번호는 4자 이상이어야 합니다.")
+            elif new_id in users:
+                st.error(f"'{new_id}'는 이미 존재하는 아이디입니다.")
+            else:
+                users[new_id] = {"password": new_pw, "role": new_role, "name": new_name}
+                save_users(users)
+                st.success(f"✅ '{new_id}' 계정이 생성되었습니다.")
+                st.rerun()
+
+    st.divider()
+
+    # ── 등록된 사용자 목록 ──
+    st.markdown("### 📋 등록된 사용자 목록")
+
+    admin_users = {k: v for k, v in users.items() if v["role"] == "admin"}
+    viewer_users = {k: v for k, v in users.items() if v["role"] == "viewer"}
+
+    # 관리자 목록
+    st.markdown("**🔑 관리자 계정**")
+    for uid, udata in admin_users.items():
+        with st.expander(f"🔑 {uid} — {udata['name']}"):
+            st.markdown(f"- **아이디**: `{uid}`")
+            st.markdown(f"- **이름**: {udata['name']}")
+            st.markdown(f"- **권한**: 관리자")
+            st.caption("⚠️ 관리자 계정은 보안을 위해 여기서 삭제할 수 없습니다.")
+
+    st.markdown("")
+
+    # 뷰어 목록 (수정/삭제 가능)
+    st.markdown("**👁️ 뷰어 계정**")
+    if not viewer_users:
+        st.info("등록된 뷰어 계정이 없습니다.")
+    else:
+        for uid, udata in viewer_users.items():
+            with st.expander(f"👁️ {uid} — {udata['name']}"):
+                ec1, ec2 = st.columns(2)
+                with ec1:
+                    edit_name = st.text_input("표시 이름", value=udata["name"], key=f"name_{uid}")
+                    edit_pw = st.text_input("새 비밀번호 (변경 시 입력)", type="password", key=f"pw_{uid}", placeholder="변경하지 않으려면 비워두세요")
+                with ec2:
+                    st.text_input("현재 비밀번호", value=udata["password"], key=f"curpw_{uid}", disabled=True)
+                    edit_role = st.selectbox("권한 변경", ["viewer", "admin"], index=0 if udata["role"] == "viewer" else 1, key=f"role_{uid}", format_func=lambda x: {"viewer": "👁️ 뷰어", "admin": "🔑 관리자"}[x])
+
+                bc1, bc2 = st.columns(2)
+                with bc1:
+                    if st.button("💾 저장", key=f"save_{uid}", use_container_width=True):
+                        users[uid]["name"] = edit_name
+                        users[uid]["role"] = edit_role
+                        if edit_pw:
+                            users[uid]["password"] = edit_pw
+                        save_users(users)
+                        st.success(f"✅ '{uid}' 계정이 수정되었습니다.")
+                        st.rerun()
+                with bc2:
+                    if st.button("🗑️ 삭제", key=f"del_{uid}", use_container_width=True, type="secondary"):
+                        del users[uid]
+                        save_users(users)
+                        st.success(f"'{uid}' 계정이 삭제되었습니다.")
+                        st.rerun()
+
+    st.divider()
+    st.markdown(f"<p style='color:#64748b;font-size:.75rem;'>총 {len(users)}개 계정 (관리자 {len(admin_users)} / 뷰어 {len(viewer_users)})</p>", unsafe_allow_html=True)
 
 
 def render_login():
@@ -1269,7 +1374,8 @@ def render_login():
         password = st.text_input("비밀번호", type="password", placeholder="비밀번호를 입력하세요")
 
         if st.button("로그인", use_container_width=True, type="primary"):
-            user = USERS.get(username)
+            users = load_users()
+            user = users.get(username)
             if user and user["password"] == password:
                 st.session_state["logged_in"] = True
                 st.session_state["username"] = username
@@ -1319,9 +1425,9 @@ def main():
 
         st.divider()
 
-        # 메뉴 — 관리자만 B/L 업로드 접근 가능
+        # 메뉴 — 관리자만 B/L 업로드, 사용자 관리 접근 가능
         if is_admin:
-            page = st.radio("메뉴", ["📊 대시보드", "📤 B/L 업로드 & 관리"], label_visibility="collapsed")
+            page = st.radio("메뉴", ["📊 대시보드", "📤 B/L 업로드 & 관리", "👥 사용자 관리"], label_visibility="collapsed")
         else:
             page = "📊 대시보드"
             st.radio("메뉴", ["📊 대시보드"], label_visibility="collapsed", disabled=True)
@@ -1346,8 +1452,10 @@ def main():
 
     if page == "📊 대시보드":
         render_dashboard(shipments, direction_filter, selected_statuses)
-    elif is_admin:
+    elif page == "📤 B/L 업로드 & 관리" and is_admin:
         render_upload_page(shipments)
+    elif page == "👥 사용자 관리" and is_admin:
+        render_user_management()
 
 
 if __name__ == "__main__":
