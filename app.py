@@ -80,13 +80,24 @@ def load_shipments() -> list:
 
 
 def _sync_milestones(shipments: list) -> list:
-    """status_type에 따라 마일스톤 상태를 자동 동기화"""
+    """status_type에 따라 마일스톤 + 배지 상태를 자동 동기화"""
     today = datetime.now().strftime("%Y-%m-%d")
+    status_labels = {
+        "transit": {"status": "해상 운송 중", "status_en": "In Transit"},
+        "delayed": {"status": "통관 지연", "status_en": "Customs Delayed"},
+        "completed": {"status": "도착 완료", "status_en": "Delivered"},
+    }
     for s in shipments:
         st_type = s.get("status_type", "transit")
+
+        # 배지 텍스트도 status_type에 맞게 동기화
+        if st_type in status_labels:
+            s["status_en"] = status_labels[st_type]["status_en"]
+
         milestones = s.get("milestones", [])
         if not milestones:
             continue
+
         if st_type == "completed":
             for ms in milestones:
                 ms["status"] = "completed"
@@ -95,14 +106,15 @@ def _sync_milestones(shipments: list) -> list:
         elif st_type == "delayed":
             for ms in milestones:
                 name_lower = ms["name"].lower()
-                if any(kw in name_lower for kw in ["booking", "etd", "on board", "출발", "선적", "eta", "도착예정", "도착"]):
-                    ms["status"] = "completed"
-                elif "customs" in name_lower or "통관" in name_lower:
+                if "customs" in name_lower or "통관" in name_lower:
                     ms["status"] = "delayed"
                     if ms.get("date") in ("TBD", "미정", "", None):
                         ms["date"] = today
                 elif "delivery" in name_lower or "배송" in name_lower:
                     ms["status"] = "pending"
+                else:
+                    # Booking, ETD, On Board, ETA 등은 모두 완료
+                    ms["status"] = "completed"
         elif st_type == "transit":
             for ms in milestones:
                 name_lower = ms["name"].lower()
