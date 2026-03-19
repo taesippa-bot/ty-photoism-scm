@@ -12,6 +12,7 @@ import folium
 from streamlit_folium import st_folium
 import plotly.graph_objects as go
 from datetime import datetime, date
+import html as html_module
 import json
 import os
 import re
@@ -20,6 +21,8 @@ import re
 # 데이터 영구 저장 (JSON)
 # ──────────────────────────────────────────────
 DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shipments_data.json")
+BL_FILES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bl_files")
+os.makedirs(BL_FILES_DIR, exist_ok=True)
 
 # 주요 항구 좌표 매핑
 PORT_COORDS = {
@@ -520,112 +523,112 @@ st.set_page_config(
 # ──────────────────────────────────────────────
 st.markdown("""
 <style>
+    /* 밝은 배경 */
     .stApp {
-        background: linear-gradient(135deg, #0a1628 0%, #0f2240 50%, #132d5e 100%);
+        background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 50%, #f8fafc 100%);
     }
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0d1b2a 0%, #1b2838 100%);
-        border-right: 1px solid #1e3a5f;
+        background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+        border-right: 1px solid #e2e8f0;
     }
     section[data-testid="stSidebar"] .stMarkdown p,
     section[data-testid="stSidebar"] .stMarkdown li,
     section[data-testid="stSidebar"] .stMarkdown span {
-        color: #cbd5e1;
+        color: #334155;
     }
     section[data-testid="stSidebar"] hr {
-        border-color: #1e3a5f;
+        border-color: #e2e8f0;
     }
     .portal-header {
-        background: linear-gradient(90deg, #1a3a6c 0%, #2563eb 100%);
+        background: linear-gradient(90deg, #1e40af 0%, #2563eb 100%);
         padding: 1.5rem 2rem;
         border-radius: 12px;
         margin-bottom: 1.5rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        box-shadow: 0 4px 15px rgba(37,99,235,0.2);
     }
     .portal-header h1 {
         color: #ffffff; font-size: 1.6rem; margin: 0; font-weight: 700;
     }
     .portal-header .subtitle {
-        color: #93c5fd; font-size: 0.85rem; margin: 0;
+        color: #bfdbfe; font-size: 0.85rem; margin: 0;
     }
     .kpi-card {
-        background: linear-gradient(145deg, #1e3a5f, #1a2d4d);
-        border: 1px solid #2563eb44;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
         border-radius: 12px;
         padding: 1.2rem 1.5rem;
         text-align: center;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        transition: transform 0.2s;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        transition: transform 0.2s, box-shadow 0.2s;
     }
-    .kpi-card:hover { transform: translateY(-2px); }
+    .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
     .kpi-value { font-size: 2.2rem; font-weight: 800; margin: 0.3rem 0; }
-    .kpi-label { color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
-    .kpi-blue { color: #60a5fa; }
-    .kpi-green { color: #34d399; }
-    .kpi-orange { color: #fbbf24; }
-    .kpi-red { color: #f87171; }
+    .kpi-label { color: #64748b; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+    .kpi-blue { color: #2563eb; }
+    .kpi-green { color: #059669; }
+    .kpi-orange { color: #d97706; }
+    .kpi-red { color: #dc2626; }
     .section-title {
-        color: #e2e8f0; font-size: 1.15rem; font-weight: 600;
+        color: #1e293b; font-size: 1.15rem; font-weight: 600;
         margin: 1.5rem 0 0.8rem 0; padding-bottom: 0.5rem;
-        border-bottom: 2px solid #2563eb55;
+        border-bottom: 2px solid #2563eb33;
         display: flex; align-items: center; gap: 0.5rem;
     }
     .shipment-card {
-        background: linear-gradient(145deg, #1e3a5f, #162d4a);
-        border: 1px solid #334155; border-radius: 10px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0; border-radius: 10px;
         padding: 1.2rem; margin-bottom: 0.8rem;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
     }
-    .shipment-card.alert { border-left: 4px solid #ef4444; }
-    .shipment-hbl { color: #60a5fa; font-weight: 700; font-size: 1rem; }
-    .shipment-info { color: #cbd5e1; font-size: 0.85rem; margin-top: 0.3rem; }
+    .shipment-card.alert { border-left: 4px solid #dc2626; }
+    .shipment-hbl { color: #1e40af; font-weight: 700; font-size: 1rem; }
+    .shipment-info { color: #475569; font-size: 0.85rem; margin-top: 0.3rem; }
     .status-badge {
         display: inline-block; padding: 0.25rem 0.75rem;
         border-radius: 20px; font-size: 0.75rem; font-weight: 600;
     }
-    .badge-transit { background: #1e40af; color: #93c5fd; }
-    .badge-delayed { background: #7f1d1d; color: #fca5a5; }
-    .badge-completed { background: #064e3b; color: #6ee7b7; }
-    .badge-customs { background: #713f12; color: #fde68a; }
+    .badge-transit { background: #dbeafe; color: #1e40af; }
+    .badge-delayed { background: #fee2e2; color: #991b1b; }
+    .badge-completed { background: #d1fae5; color: #065f46; }
+    .badge-customs { background: #fef3c7; color: #92400e; }
     .alert-banner {
-        background: linear-gradient(135deg, #7f1d1d, #991b1b);
-        border: 1px solid #ef4444; border-radius: 10px;
+        background: linear-gradient(135deg, #fef2f2, #fee2e2);
+        border: 1px solid #fca5a5; border-radius: 10px;
         padding: 1rem 1.5rem; margin: 0.8rem 0;
         display: flex; align-items: flex-start; gap: 0.8rem;
     }
-    .alert-title { color: #fca5a5; font-weight: 700; font-size: 0.95rem; }
-    .alert-desc { color: #fecaca; font-size: 0.82rem; margin-top: 0.3rem; }
+    .alert-title { color: #991b1b; font-weight: 700; font-size: 0.95rem; }
+    .alert-desc { color: #7f1d1d; font-size: 0.82rem; margin-top: 0.3rem; }
     .info-table { width: 100%; border-collapse: collapse; }
-    .info-table td { padding: 0.4rem 0.6rem; font-size: 0.82rem; border-bottom: 1px solid #1e3a5f; }
-    .info-table .label { color: #64748b; width: 120px; }
-    .info-table .value { color: #e2e8f0; font-weight: 500; }
-    div[data-testid="stSelectbox"] label { color: #94a3b8 !important; }
-    div[data-testid="stRadio"] label { color: #94a3b8 !important; }
-    div[data-testid="stMultiSelect"] label { color: #94a3b8 !important; }
+    .info-table td { padding: 0.4rem 0.6rem; font-size: 0.82rem; border-bottom: 1px solid #f1f5f9; }
+    .info-table .label { color: #94a3b8; width: 120px; }
+    .info-table .value { color: #1e293b; font-weight: 500; }
+    div[data-testid="stSelectbox"] label { color: #475569 !important; }
+    div[data-testid="stRadio"] label { color: #475569 !important; }
+    div[data-testid="stMultiSelect"] label { color: #475569 !important; }
     .stTabs [data-baseweb="tab-list"] { gap: 8px; }
     .stTabs [data-baseweb="tab"] {
-        background-color: #1e3a5f; border-radius: 8px 8px 0 0;
-        color: #94a3b8; padding: 0.5rem 1.2rem;
+        background-color: #f1f5f9; border-radius: 8px 8px 0 0;
+        color: #64748b; padding: 0.5rem 1.2rem;
     }
     .stTabs [aria-selected="true"] { background-color: #2563eb !important; color: #ffffff !important; }
     .footer {
-        text-align: center; color: #475569; font-size: 0.7rem;
-        margin-top: 2rem; padding: 1rem; border-top: 1px solid #1e3a5f;
+        text-align: center; color: #94a3b8; font-size: 0.7rem;
+        margin-top: 2rem; padding: 1rem; border-top: 1px solid #e2e8f0;
     }
-    /* 업로드 결과 카드 */
     .parse-result {
-        background: #1e3a5f; border: 1px solid #2563eb66;
+        background: #f8fafc; border: 1px solid #e2e8f0;
         border-radius: 10px; padding: 1rem; margin: 0.5rem 0;
     }
-    .parse-field { color: #94a3b8; font-size: 0.75rem; margin-bottom: 0.1rem; }
-    .parse-value { color: #e2e8f0; font-size: 0.9rem; font-weight: 500; margin-bottom: 0.6rem; }
-    /* 성공 배너 */
+    .parse-field { color: #64748b; font-size: 0.75rem; margin-bottom: 0.1rem; }
+    .parse-value { color: #1e293b; font-size: 0.9rem; font-weight: 500; margin-bottom: 0.6rem; }
     .success-banner {
-        background: linear-gradient(135deg, #064e3b, #065f46);
-        border: 1px solid #10b981; border-radius: 10px;
-        padding: 1rem 1.5rem; margin: 0.8rem 0; color: #a7f3d0;
+        background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+        border: 1px solid #6ee7b7; border-radius: 10px;
+        padding: 1rem 1.5rem; margin: 0.8rem 0; color: #065f46;
         font-weight: 600;
     }
 </style>
@@ -702,29 +705,29 @@ def render_timeline_component(shipment: dict) -> None:
     full_html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">
     <style>
         *{{margin:0;padding:0;box-sizing:border-box}}
-        body{{background:transparent;font-family:'Segoe UI',sans-serif;color:#e2e8f0}}
-        .tl-card{{background:linear-gradient(145deg,#1e3a5f,#162d4a);border:1px solid #334155;border-radius:10px;padding:1.2rem}}
+        body{{background:transparent;font-family:'Segoe UI',sans-serif;color:#1e293b}}
+        .tl-card{{background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:1.2rem;box-shadow:0 1px 4px rgba(0,0,0,0.05)}}
         .tl-header{{display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem}}
-        .tl-hbl{{color:#60a5fa;font-weight:700;font-size:1rem}}
-        .tl-route{{color:#94a3b8;font-size:.82rem;margin-bottom:1rem}}
+        .tl-hbl{{color:#1e40af;font-weight:700;font-size:1rem}}
+        .tl-route{{color:#64748b;font-size:.82rem;margin-bottom:1rem}}
         .status-badge{{display:inline-block;padding:.25rem .75rem;border-radius:20px;font-size:.75rem;font-weight:600}}
-        .badge-transit{{background:#1e40af;color:#93c5fd}}.badge-delayed{{background:#7f1d1d;color:#fca5a5}}.badge-completed{{background:#064e3b;color:#6ee7b7}}
+        .badge-transit{{background:#dbeafe;color:#1e40af}}.badge-delayed{{background:#fee2e2;color:#991b1b}}.badge-completed{{background:#d1fae5;color:#065f46}}
         .tl-wrapper{{position:relative;padding:0 .5rem}}
-        .tl-line{{position:absolute;top:18px;left:10%;right:10%;height:3px;background:#334155;z-index:0}}
+        .tl-line{{position:absolute;top:18px;left:10%;right:10%;height:3px;background:#e2e8f0;z-index:0}}
         .tl-line-fill{{height:100%;background:linear-gradient(90deg,#059669,#2563eb);border-radius:2px}}
         .tl-steps{{display:flex;justify-content:space-between;position:relative;z-index:1}}
         .tl-step{{display:flex;flex-direction:column;align-items:center;flex:1}}
         .tl-dot{{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:700;margin-bottom:.5rem}}
         .dot-completed{{background:#059669;color:#fff}}
-        .dot-active{{background:#2563eb;color:#fff;box-shadow:0 0 0 4px rgba(37,99,235,.3),0 0 15px rgba(37,99,235,.4);animation:pulse 2s infinite}}
-        .dot-pending{{background:#334155;color:#64748b}}
-        .dot-delayed{{background:#dc2626;color:#fff;box-shadow:0 0 0 4px rgba(220,38,38,.3)}}
-        @keyframes pulse{{0%,100%{{box-shadow:0 0 0 4px rgba(37,99,235,.3),0 0 15px rgba(37,99,235,.2)}}50%{{box-shadow:0 0 0 8px rgba(37,99,235,.15),0 0 25px rgba(37,99,235,.35)}}}}
-        .tl-label{{color:#94a3b8;font-size:.72rem;text-align:center;line-height:1.3}}
-        .tl-date{{color:#64748b;font-size:.65rem;text-align:center;margin-top:.2rem}}
-        .tl-alert{{background:linear-gradient(135deg,#7f1d1d,#991b1b);border:1px solid #ef4444;border-radius:10px;padding:1rem 1.2rem;margin-top:1rem;display:flex;align-items:flex-start;gap:.8rem}}
-        .tl-alert-title{{color:#fca5a5;font-weight:700;font-size:.9rem}}
-        .tl-alert-desc{{color:#fecaca;font-size:.8rem;margin-top:.3rem;line-height:1.5}}
+        .dot-active{{background:#2563eb;color:#fff;box-shadow:0 0 0 4px rgba(37,99,235,.2),0 0 12px rgba(37,99,235,.3);animation:pulse 2s infinite}}
+        .dot-pending{{background:#e2e8f0;color:#94a3b8}}
+        .dot-delayed{{background:#dc2626;color:#fff;box-shadow:0 0 0 4px rgba(220,38,38,.2)}}
+        @keyframes pulse{{0%,100%{{box-shadow:0 0 0 4px rgba(37,99,235,.2),0 0 12px rgba(37,99,235,.15)}}50%{{box-shadow:0 0 0 8px rgba(37,99,235,.1),0 0 20px rgba(37,99,235,.25)}}}}
+        .tl-label{{color:#64748b;font-size:.72rem;text-align:center;line-height:1.3}}
+        .tl-date{{color:#94a3b8;font-size:.65rem;text-align:center;margin-top:.2rem}}
+        .tl-alert{{background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1px solid #fca5a5;border-radius:10px;padding:1rem 1.2rem;margin-top:1rem;display:flex;align-items:flex-start;gap:.8rem}}
+        .tl-alert-title{{color:#991b1b;font-weight:700;font-size:.9rem}}
+        .tl-alert-desc{{color:#7f1d1d;font-size:.8rem;margin-top:.3rem;line-height:1.5}}
     </style></head><body>
     <div class="tl-card">
         <div class="tl-header">
@@ -742,7 +745,7 @@ def render_timeline_component(shipment: dict) -> None:
 
 
 def build_tracking_map(shipments: list) -> folium.Map:
-    m = folium.Map(location=[25, 140], zoom_start=2, tiles="CartoDB dark_matter", attr="TY Logistics", min_zoom=2, max_bounds=True)
+    m = folium.Map(location=[25, 140], zoom_start=2, tiles="CartoDB positron", attr="TY Logistics", min_zoom=2, max_bounds=True)
     colors = {"transit": "#3b82f6", "delayed": "#ef4444", "completed": "#10b981"}
 
     for s in shipments:
@@ -793,16 +796,16 @@ def build_status_donut(shipments: list) -> go.Figure:
     for s in shipments:
         st_type = s.get("status_type", "transit")
         status_counts[st_type] = status_counts.get(st_type, 0) + 1
-    fig = go.Figure(data=[go.Pie(labels=[labels_map.get(k, k) for k in status_counts], values=list(status_counts.values()), hole=0.55, marker=dict(colors=[colors_map.get(k, "#64748b") for k in status_counts], line=dict(color="#0a1628", width=2)), textinfo="label+value", textfont=dict(size=12, color="#e2e8f0"))])
-    fig.update_layout(showlegend=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=10,r=10,t=10,b=10), height=200, font=dict(color="#e2e8f0"), annotations=[dict(text=f"<b>{sum(status_counts.values())}</b><br>건", x=0.5, y=0.5, font=dict(size=22, color="#60a5fa"), showarrow=False)])
+    fig = go.Figure(data=[go.Pie(labels=[labels_map.get(k, k) for k in status_counts], values=list(status_counts.values()), hole=0.55, marker=dict(colors=[colors_map.get(k, "#64748b") for k in status_counts], line=dict(color="#ffffff", width=2)), textinfo="label+value", textfont=dict(size=12, color="#334155"))])
+    fig.update_layout(showlegend=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=10,r=10,t=10,b=10), height=200, font=dict(color="#334155"), annotations=[dict(text=f"<b>{sum(status_counts.values())}</b><br>건", x=0.5, y=0.5, font=dict(size=22, color="#1e40af"), showarrow=False)])
     return fig
 
 
 def build_direction_donut(shipments: list) -> go.Figure:
     imports = sum(1 for s in shipments if s.get("direction_key") == "import")
     exports = sum(1 for s in shipments if s.get("direction_key") == "export")
-    fig = go.Figure(data=[go.Pie(labels=["수입 (Import)", "수출 (Export)"], values=[imports, exports], hole=0.55, marker=dict(colors=["#6366f1", "#f59e0b"], line=dict(color="#0a1628", width=2)), textinfo="label+value", textfont=dict(size=12, color="#e2e8f0"))])
-    fig.update_layout(showlegend=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=10,r=10,t=10,b=10), height=200, font=dict(color="#e2e8f0"))
+    fig = go.Figure(data=[go.Pie(labels=["수입 (Import)", "수출 (Export)"], values=[imports, exports], hole=0.55, marker=dict(colors=["#6366f1", "#f59e0b"], line=dict(color="#ffffff", width=2)), textinfo="label+value", textfont=dict(size=12, color="#334155"))])
+    fig.update_layout(showlegend=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=10,r=10,t=10,b=10), height=200, font=dict(color="#334155"))
     return fig
 
 
@@ -866,6 +869,13 @@ def render_upload_page(shipments: list) -> list:
 
                 status_type = st.selectbox("현재 상태", ["transit", "delayed", "completed"], format_func=lambda x: {"transit": "운송 중", "delayed": "지연/이슈", "completed": "도착 완료"}[x])
 
+                issue_note = st.text_area(
+                    "📌 Issue / 특이사항",
+                    value="",
+                    height=100,
+                    placeholder="진행 중 문제사항이나 특이사항을 입력하세요. (예: SIRIM 인증 대기 중, 서류 미비로 통관 지연 등)",
+                )
+
                 submitted = st.form_submit_button("✅ 대시보드에 등록", use_container_width=True)
 
                 if submitted:
@@ -910,13 +920,14 @@ def render_upload_page(shipments: list) -> list:
                         "weight_kg": weight,
                         "packages": packages,
                         "incoterms": incoterms,
-                        "has_issue": status_type == "delayed",
+                        "has_issue": status_type == "delayed" or bool(issue_note.strip()),
+                        "issue_note": issue_note.strip(),
                         "issue_detail": {
-                            "title": "통관 지연",
-                            "description": "통관 진행 중 지연이 발생했습니다. 상세 사유를 확인해 주세요.",
+                            "title": "이슈 발생" if issue_note.strip() else "통관 지연",
+                            "description": issue_note.strip() or "통관 진행 중 지연이 발생했습니다.",
                             "expected_delay": "확인 필요",
-                            "action_required": "현지 에이전트 확인 필요",
-                        } if status_type == "delayed" else None,
+                            "action_required": "담당자 확인 필요",
+                        } if (status_type == "delayed" or issue_note.strip()) else None,
                         "milestones": [
                             {"name": "Booking\nConfirmed", "date": today, "status": "completed"},
                             {"name": "ETD\n출발", "date": on_board_date or today, "status": "completed" if status_type != "transit" else "completed"},
@@ -926,6 +937,16 @@ def render_upload_page(shipments: list) -> list:
                             {"name": "Delivery\n배송", "date": "TBD", "status": "completed" if status_type == "completed" else "pending"},
                         ],
                     }
+
+                    # 업로드된 B/L 원본 파일 저장
+                    if uploaded_file:
+                        safe_name = re.sub(r'[^\w\-.]', '_', uploaded_file.name)
+                        bl_filename = f"{new_shipment['hbl']}_{safe_name}"
+                        bl_filepath = os.path.join(BL_FILES_DIR, bl_filename)
+                        uploaded_file.seek(0)
+                        with open(bl_filepath, "wb") as bf:
+                            bf.write(uploaded_file.read())
+                        new_shipment["bl_file"] = bl_filename
 
                     shipments.append(new_shipment)
                     save_shipments(shipments)
@@ -942,43 +963,113 @@ def render_upload_page(shipments: list) -> list:
     with manage_tab:
         st.markdown('<div class="section-title">📋 등록된 선적 관리</div>', unsafe_allow_html=True)
 
+        # 저장/삭제 완료 메시지 표시
+        if st.session_state.get("manage_msg"):
+            st.success(st.session_state["manage_msg"])
+            st.session_state["manage_msg"] = None
+
         if not shipments:
             st.info("등록된 선적이 없습니다.")
             return shipments
 
         for i, s in enumerate(shipments):
-            badge = get_status_badge(s.get("status_type", "transit"), s.get("status_en", ""))
-            with st.expander(f"{s.get('hbl', '')} — {s.get('commodity', '')} ({s.get('direction', '')})"):
-                col1, col2, col3 = st.columns([2, 2, 1])
-                with col1:
-                    st.markdown(f"**선적항:** {s.get('origin_port', '')}")
-                    st.markdown(f"**도착항:** {s.get('dest_port', '')}")
-                    st.markdown(f"**선박:** {s.get('vessel', '')}")
-                    st.markdown(f"**선사:** {s.get('carrier', '')}")
-                with col2:
-                    st.markdown(f"**중량:** {s.get('weight_kg', 0):,} kg")
-                    st.markdown(f"**수량:** {s.get('packages', 0)} pkgs")
-                    st.markdown(f"**Incoterms:** {s.get('incoterms', '')}")
-                    new_status = st.selectbox(
-                        "상태 변경",
-                        ["transit", "delayed", "completed"],
-                        index=["transit", "delayed", "completed"].index(s.get("status_type", "transit")),
-                        format_func=lambda x: {"transit": "운송 중", "delayed": "지연/이슈", "completed": "도착 완료"}[x],
-                        key=f"status_{i}",
-                    )
-                    if new_status != s.get("status_type"):
-                        status_labels = {"transit": ("해상 운송 중", "In Transit"), "delayed": ("통관 지연", "Customs Delayed"), "completed": ("도착 완료", "Delivered")}
-                        s["status_type"] = new_status
-                        s["status_en"] = status_labels[new_status][1]
-                        s["status"] = status_labels[new_status][0]
-                        s["has_issue"] = new_status == "delayed"
-                        save_shipments(shipments)
-                        st.rerun()
+            # 삭제 버튼을 왼쪽에 바로 노출, expander를 오른쪽에 배치
+            del_col, exp_col = st.columns([0.06, 0.94])
+            with del_col:
+                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+                if st.button("❌", key=f"quickdel_{i}", help=f"{s.get('hbl', '')} 삭제"):
+                    hbl_name = shipments[i].get("hbl", "")
+                    shipments.pop(i)
+                    save_shipments(shipments)
+                    st.session_state["manage_msg"] = f"🗑️ {hbl_name} 삭제 완료!"
+                    st.rerun()
+            with exp_col:
+                with st.expander(f"{s.get('hbl', '')} — {s.get('commodity', '')} ({s.get('direction', '')})"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        edit_origin = st.text_input("선적항", value=s.get("origin_port", ""), key=f"origin_{i}")
+                        edit_dest = st.text_input("도착항", value=s.get("dest_port", ""), key=f"dest_{i}")
+                        edit_vessel = st.text_input("선박", value=s.get("vessel", ""), key=f"vessel_{i}")
+                        edit_carrier = st.text_input("선사", value=s.get("carrier", ""), key=f"carrier_{i}")
+                    with col2:
+                        edit_weight = st.number_input("중량 (kg)", value=int(s.get("weight_kg", 0)), key=f"weight_{i}")
+                        edit_packages = st.number_input("수량 (pkgs)", value=int(s.get("packages", 0)), key=f"pkgs_{i}")
+                        edit_incoterms = st.text_input("Incoterms", value=s.get("incoterms", ""), key=f"inco_{i}")
+                        edit_status = st.selectbox(
+                            "상태 변경",
+                            ["transit", "delayed", "completed"],
+                            index=["transit", "delayed", "completed"].index(s.get("status_type", "transit")),
+                            format_func=lambda x: {"transit": "운송 중", "delayed": "지연/이슈", "completed": "도착 완료"}[x],
+                            key=f"status_{i}",
+                        )
 
-                with col3:
-                    if st.button("🗑️ 삭제", key=f"del_{i}", use_container_width=True):
-                        shipments.pop(i)
+                    edit_issue = st.text_area(
+                        "📌 Issue / 특이사항",
+                        value=s.get("issue_note", ""),
+                        height=80,
+                        placeholder="문제사항이나 특이사항을 입력하세요.",
+                        key=f"issue_{i}",
+                    )
+
+                    if st.button("💾 변경사항 저장", key=f"save_{i}", use_container_width=True, type="primary"):
+                        status_labels = {"transit": ("해상 운송 중", "In Transit"), "delayed": ("통관 지연", "Customs Delayed"), "completed": ("도착 완료", "Delivered")}
+                        shipments[i]["origin_port"] = edit_origin
+                        shipments[i]["dest_port"] = edit_dest
+                        shipments[i]["vessel"] = edit_vessel
+                        shipments[i]["carrier"] = edit_carrier
+                        shipments[i]["weight_kg"] = edit_weight
+                        shipments[i]["packages"] = edit_packages
+                        shipments[i]["incoterms"] = edit_incoterms
+                        shipments[i]["issue_note"] = edit_issue.strip()
+                        shipments[i]["status_type"] = edit_status
+                        shipments[i]["status_en"] = status_labels[edit_status][1]
+                        shipments[i]["status"] = status_labels[edit_status][0]
+                        shipments[i]["has_issue"] = edit_status == "delayed" or bool(edit_issue.strip())
+                        if edit_issue.strip():
+                            shipments[i]["issue_detail"] = {
+                                "title": "이슈 발생",
+                                "description": edit_issue.strip(),
+                                "expected_delay": "확인 필요",
+                                "action_required": "담당자 확인 필요",
+                            }
+                        elif edit_status != "delayed":
+                            shipments[i]["issue_detail"] = None
+                        shipments[i]["origin_coords"] = find_port_coords(edit_origin)
+                        shipments[i]["dest_coords"] = find_port_coords(edit_dest)
+                        if edit_status == "completed":
+                            shipments[i]["current_coords"] = shipments[i]["dest_coords"]
+                        # 마일스톤 상태도 동기화
+                        today = datetime.now().strftime("%Y-%m-%d")
+                        milestones = shipments[i].get("milestones", [])
+                        if edit_status == "completed":
+                            for ms in milestones:
+                                ms["status"] = "completed"
+                                if ms["date"] == "TBD" or ms["date"] == "미정":
+                                    ms["date"] = today
+                        elif edit_status == "delayed":
+                            for j, ms in enumerate(milestones):
+                                name_lower = ms["name"].lower()
+                                if "customs" in name_lower or "통관" in name_lower:
+                                    ms["status"] = "delayed"
+                                    if ms["date"] == "TBD" or ms["date"] == "미정":
+                                        ms["date"] = today
+                                elif j < len(milestones) - 1 and ms["status"] in ("pending", "active"):
+                                    if any(kw in name_lower for kw in ["booking", "etd", "on board", "eta", "출발", "선적", "도착"]):
+                                        ms["status"] = "completed"
+                                elif "delivery" in name_lower or "배송" in name_lower:
+                                    ms["status"] = "pending"
+                        elif edit_status == "transit":
+                            for j, ms in enumerate(milestones):
+                                name_lower = ms["name"].lower()
+                                if any(kw in name_lower for kw in ["booking", "etd", "on board", "출발", "선적"]):
+                                    ms["status"] = "completed"
+                                elif "eta" in name_lower or "도착예정" in name_lower or "도착" in name_lower:
+                                    ms["status"] = "active"
+                                else:
+                                    ms["status"] = "pending"
+                        shipments[i]["milestones"] = milestones
                         save_shipments(shipments)
+                        st.session_state["manage_msg"] = f"✅ {s.get('hbl', '')} 저장 완료!"
                         st.rerun()
 
         # CSV 다운로드
@@ -1041,9 +1132,7 @@ def render_dashboard(shipments: list, direction_filter: str, status_filter: list
     completed = sum(1 for s in filtered if s.get("status_type") == "completed")
     imports = sum(1 for s in filtered if s.get("direction_key") == "import")
     exports = sum(1 for s in filtered if s.get("direction_key") == "export")
-    total_weight = sum(s.get("weight_kg", 0) for s in filtered)
-
-    k1, k2, k3, k4, k5 = st.columns(5)
+    k1, k2, k3, k4 = st.columns(4)
     with k1:
         st.markdown(f'<div class="kpi-card"><div class="kpi-label">전체 선적</div><div class="kpi-value kpi-blue">{total}</div><div class="kpi-label">수입 {imports} / 수출 {exports}</div></div>', unsafe_allow_html=True)
     with k2:
@@ -1052,8 +1141,6 @@ def render_dashboard(shipments: list, direction_filter: str, status_filter: list
         st.markdown(f'<div class="kpi-card"><div class="kpi-label">통관/지연</div><div class="kpi-value kpi-orange">{delayed}</div><div class="kpi-label">Customs / Delayed</div></div>', unsafe_allow_html=True)
     with k4:
         st.markdown(f'<div class="kpi-card"><div class="kpi-label">도착 완료</div><div class="kpi-value kpi-green">{completed}</div><div class="kpi-label">Delivered</div></div>', unsafe_allow_html=True)
-    with k5:
-        st.markdown(f'<div class="kpi-card"><div class="kpi-label">총 중량</div><div class="kpi-value kpi-blue" style="font-size:1.6rem;">{total_weight:,}</div><div class="kpi-label">KG</div></div>', unsafe_allow_html=True)
 
     # 차트
     chart1, chart2 = st.columns(2)
@@ -1081,26 +1168,61 @@ def render_dashboard(shipments: list, direction_filter: str, status_filter: list
 
     with list_col:
         st.markdown('<div class="section-title">📦 Active Shipments</div>', unsafe_allow_html=True)
-        for s in filtered:
+        for idx, s in enumerate(filtered):
             alert_class = " alert" if s.get("has_issue") else ""
             badge = get_status_badge(s.get("status_type", ""), s.get("status_en", ""))
-            st.markdown(f"""
-            <div class="shipment-card{alert_class}">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <span class="shipment-hbl">{s.get('hbl','')}</span>{badge}
-                </div>
-                <div class="shipment-info">
-                    <table class="info-table">
-                        <tr><td class="label">구분</td><td class="value">{s.get('direction','')}</td></tr>
-                        <tr><td class="label">품목</td><td class="value">{s.get('commodity','')}</td></tr>
-                        <tr><td class="label">경로</td><td class="value">{s.get('origin_port','')} → {s.get('dest_port','')}</td></tr>
-                        <tr><td class="label">선박</td><td class="value">{s.get('vessel','')}</td></tr>
-                        <tr><td class="label">운송</td><td class="value">{s.get('transport_mode','')} | {s.get('incoterms','')}</td></tr>
-                        <tr><td class="label">중량/수량</td><td class="value">{s.get('weight_kg',0):,} kg / {s.get('packages',0)} pkgs</td></tr>
-                        <tr><td class="label">상태</td><td class="value">{s.get('status','')}</td></tr>
-                    </table>
-                </div>
-            </div>""", unsafe_allow_html=True)
+            # HTML 특수문자 이스케이프
+            esc = html_module.escape
+            hbl_esc = esc(str(s.get('hbl', '')))
+            direction_esc = esc(str(s.get('direction', '')))
+            commodity_esc = esc(str(s.get('commodity', '')))
+            origin_esc = esc(str(s.get('origin_port', '')))
+            dest_esc = esc(str(s.get('dest_port', '')))
+            vessel_esc = esc(str(s.get('vessel', '')))
+            transport_esc = esc(str(s.get('transport_mode', '')))
+            incoterms_esc = esc(str(s.get('incoterms', '')))
+            status_esc = esc(str(s.get('status', '')))
+            issue_row = ""
+            if s.get("issue_note"):
+                issue_esc = esc(str(s.get("issue_note", "")))
+                issue_row = f'<tr><td class="label">⚠️ Issue</td><td class="value" style="color:#dc2626;font-weight:600;">{issue_esc}</td></tr>'
+            card_html = (
+                f'<div class="shipment-card{alert_class}">'
+                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+                f'<span class="shipment-hbl">{hbl_esc}</span>{badge}'
+                f'</div>'
+                f'<div class="shipment-info">'
+                f'<table class="info-table">'
+                f'<tr><td class="label">구분</td><td class="value">{direction_esc}</td></tr>'
+                f'<tr><td class="label">품목</td><td class="value">{commodity_esc}</td></tr>'
+                f'<tr><td class="label">경로</td><td class="value">{origin_esc} → {dest_esc}</td></tr>'
+                f'<tr><td class="label">선박</td><td class="value">{vessel_esc}</td></tr>'
+                f'<tr><td class="label">운송</td><td class="value">{transport_esc} | {incoterms_esc}</td></tr>'
+                f'<tr><td class="label">중량/수량</td><td class="value">{s.get("weight_kg",0):,} kg / {s.get("packages",0)} pkgs</td></tr>'
+                f'<tr><td class="label">상태</td><td class="value">{status_esc}</td></tr>'
+                f'{issue_row}'
+                f'</table>'
+                f'</div>'
+                f'</div>'
+            )
+            st.markdown(card_html, unsafe_allow_html=True)
+            # B/L 파일 다운로드 버튼
+            bl_file = s.get("bl_file", "")
+            if bl_file:
+                bl_path = os.path.join(BL_FILES_DIR, bl_file)
+                if os.path.exists(bl_path):
+                    with open(bl_path, "rb") as bf:
+                        file_bytes = bf.read()
+                    ext = bl_file.split(".")[-1].lower()
+                    mime = "application/pdf" if ext == "pdf" else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    st.download_button(
+                        label=f"📎 B/L 다운로드 ({bl_file.split('_', 1)[-1]})",
+                        data=file_bytes,
+                        file_name=bl_file.split("_", 1)[-1] if "_" in bl_file else bl_file,
+                        mime=mime,
+                        key=f"dl_bl_{idx}",
+                        use_container_width=True,
+                    )
         if not filtered:
             st.info("필터 조건에 해당하는 선적이 없습니다.")
 
@@ -1118,16 +1240,91 @@ def render_dashboard(shipments: list, direction_filter: str, status_filter: list
 
 
 # ──────────────────────────────────────────────
+# 사용자 인증
+# ──────────────────────────────────────────────
+USERS = {
+    "admin": {"password": "ty2026!", "role": "admin", "name": "TY Logistics 관리자"},
+    "james": {"password": "james2026", "role": "admin", "name": "James (TY)"},
+    "photoism": {"password": "photoism2026", "role": "viewer", "name": "Photoism SCM팀"},
+    "viewer": {"password": "view2026", "role": "viewer", "name": "External Viewer"},
+}
+
+
+def render_login():
+    """로그인 페이지"""
+    st.markdown("""
+    <div style="display:flex;justify-content:center;align-items:center;min-height:60vh;">
+        <div style="text-align:center;">
+            <h1 style="color:#1e40af;font-size:2.5rem;margin-bottom:0.2rem;">TY-Photoism SCM Portal</h1>
+            <p style="color:#64748b;font-size:1rem;margin-bottom:2rem;">Real-time Cargo Tracking & Management Dashboard</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 1.5, 1])
+    with col2:
+        st.markdown('<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:2rem;box-shadow:0 4px 15px rgba(0,0,0,0.08);">', unsafe_allow_html=True)
+        st.markdown("#### 로그인")
+        username = st.text_input("아이디", placeholder="아이디를 입력하세요")
+        password = st.text_input("비밀번호", type="password", placeholder="비밀번호를 입력하세요")
+
+        if st.button("로그인", use_container_width=True, type="primary"):
+            user = USERS.get(username)
+            if user and user["password"] == password:
+                st.session_state["logged_in"] = True
+                st.session_state["username"] = username
+                st.session_state["role"] = user["role"]
+                st.session_state["display_name"] = user["name"]
+                st.rerun()
+            else:
+                st.error("아이디 또는 비밀번호가 올바르지 않습니다.")
+
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div style="text-align:center;margin-top:1.5rem;color:#94a3b8;font-size:0.75rem;">
+            <p>내부 관리자: B/L 업로드 & 데이터 관리 가능</p>
+            <p>외부 뷰어: 대시보드 조회만 가능</p>
+            <p style="margin-top:1rem;">Powered by TY Logistics</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+# ──────────────────────────────────────────────
 # 메인
 # ──────────────────────────────────────────────
 def main():
+    # 로그인 체크
+    if not st.session_state.get("logged_in"):
+        render_login()
+        return
+
+    role = st.session_state.get("role", "viewer")
+    display_name = st.session_state.get("display_name", "")
+    is_admin = role == "admin"
+
     shipments = load_shipments()
 
     with st.sidebar:
-        st.markdown('<div style="text-align:center;padding:1rem 0;"><h2 style="color:#60a5fa;margin:0;">TY Logistics</h2><p style="color:#64748b;font-size:.75rem;margin:.3rem 0 0 0;">Photoism SCM Portal v3</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="text-align:center;padding:1rem 0;"><h2 style="color:#1e40af;margin:0;">TY Logistics</h2><p style="color:#64748b;font-size:.75rem;margin:.3rem 0 0 0;">Photoism SCM Portal v3</p></div>', unsafe_allow_html=True)
         st.divider()
 
-        page = st.radio("메뉴", ["📊 대시보드", "📤 B/L 업로드 & 관리"], label_visibility="collapsed")
+        # 사용자 정보 표시
+        role_badge = "🔑 관리자" if is_admin else "👁️ 뷰어"
+        st.markdown(f"**{display_name}** &nbsp; {role_badge}")
+
+        if st.button("로그아웃", use_container_width=True):
+            for key in ["logged_in", "username", "role", "display_name"]:
+                st.session_state.pop(key, None)
+            st.rerun()
+
+        st.divider()
+
+        # 메뉴 — 관리자만 B/L 업로드 접근 가능
+        if is_admin:
+            page = st.radio("메뉴", ["📊 대시보드", "📤 B/L 업로드 & 관리"], label_visibility="collapsed")
+        else:
+            page = "📊 대시보드"
+            st.radio("메뉴", ["📊 대시보드"], label_visibility="collapsed", disabled=True)
 
         if page == "📊 대시보드":
             st.divider()
@@ -1149,8 +1346,8 @@ def main():
 
     if page == "📊 대시보드":
         render_dashboard(shipments, direction_filter, selected_statuses)
-    else:
-        updated = render_upload_page(shipments)
+    elif is_admin:
+        render_upload_page(shipments)
 
 
 if __name__ == "__main__":

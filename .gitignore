@@ -1,5 +1,4 @@
 __pycache__/
 *.pyc
-.streamlit/
 shipments_data.json
 .claude/
