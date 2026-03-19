@@ -1135,12 +1135,65 @@ def render_dashboard(shipments: list, direction_filter: str, status_filter: list
     k1, k2, k3, k4 = st.columns(4)
     with k1:
         st.markdown(f'<div class="kpi-card"><div class="kpi-label">전체 선적</div><div class="kpi-value kpi-blue">{total}</div><div class="kpi-label">수입 {imports} / 수출 {exports}</div></div>', unsafe_allow_html=True)
+        if total > 0:
+            if st.button("📋 전체 목록 보기", key="btn_all_list", use_container_width=True):
+                st.session_state["show_shipment_list"] = "all"
+                st.session_state.pop("selected_shipment_hbl", None)
     with k2:
         st.markdown(f'<div class="kpi-card"><div class="kpi-label">운송 중</div><div class="kpi-value kpi-blue">{in_transit}</div><div class="kpi-label">In Transit</div></div>', unsafe_allow_html=True)
+        if in_transit > 0:
+            if st.button("📋 운송 중 목록", key="btn_transit_list", use_container_width=True):
+                st.session_state["show_shipment_list"] = "transit"
+                st.session_state.pop("selected_shipment_hbl", None)
     with k3:
         st.markdown(f'<div class="kpi-card"><div class="kpi-label">통관/지연</div><div class="kpi-value kpi-orange">{delayed}</div><div class="kpi-label">Customs / Delayed</div></div>', unsafe_allow_html=True)
+        if delayed > 0:
+            if st.button("📋 지연 목록", key="btn_delayed_list", use_container_width=True):
+                st.session_state["show_shipment_list"] = "delayed"
+                st.session_state.pop("selected_shipment_hbl", None)
     with k4:
         st.markdown(f'<div class="kpi-card"><div class="kpi-label">도착 완료</div><div class="kpi-value kpi-green">{completed}</div><div class="kpi-label">Delivered</div></div>', unsafe_allow_html=True)
+        if completed > 0:
+            if st.button("📋 완료 목록", key="btn_completed_list", use_container_width=True):
+                st.session_state["show_shipment_list"] = "completed"
+                st.session_state.pop("selected_shipment_hbl", None)
+
+    # ── 선적 목록 팝업 (KPI 클릭 시 표시) ──
+    list_mode = st.session_state.get("show_shipment_list")
+    if list_mode:
+        list_title_map = {"all": "전체 선적", "transit": "운송 중", "delayed": "통관/지연", "completed": "도착 완료"}
+        if list_mode == "all":
+            list_items = filtered
+        else:
+            list_items = [s for s in filtered if s.get("status_type") == list_mode]
+
+        st.markdown(f'<div class="section-title">📋 {list_title_map.get(list_mode, "")} 목록 ({len(list_items)}건)</div>', unsafe_allow_html=True)
+
+        if st.button("✕ 목록 닫기", key="close_list"):
+            st.session_state.pop("show_shipment_list", None)
+            st.session_state.pop("selected_shipment_hbl", None)
+            st.rerun()
+
+        status_icons = {"transit": "🚢", "delayed": "⚠️", "completed": "✅"}
+        list_cols = st.columns(min(len(list_items), 3)) if len(list_items) <= 3 else st.columns(3)
+        for i, s in enumerate(list_items):
+            col_idx = i % 3
+            with (list_cols[col_idx] if len(list_items) > 1 else list_cols[0]):
+                icon = status_icons.get(s.get("status_type", ""), "📦")
+                direction_label = s.get("direction", "")
+                route = f"{s.get('origin_port', '')} → {s.get('dest_port', '')}"
+                st.markdown(f"""<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:0.8rem;margin-bottom:0.5rem;">
+                    <div style="font-weight:700;color:#1e40af;font-size:0.9rem;">{icon} {s.get('hbl','')}</div>
+                    <div style="font-size:0.75rem;color:#475569;margin-top:0.3rem;">{s.get('commodity','')} | {direction_label}</div>
+                    <div style="font-size:0.7rem;color:#64748b;">{route}</div>
+                </div>""", unsafe_allow_html=True)
+                if st.button(f"🔍 상세 보기", key=f"select_{s.get('hbl', i)}_{i}", use_container_width=True):
+                    st.session_state["selected_shipment_hbl"] = s.get("hbl")
+                    st.session_state.pop("show_shipment_list", None)
+                    st.rerun()
+
+    # ── 선택된 선적 상세 (Active Shipments로 스크롤) ──
+    selected_hbl_from_list = st.session_state.get("selected_shipment_hbl")
 
     # 차트
     chart1, chart2 = st.columns(2)
@@ -1168,7 +1221,20 @@ def render_dashboard(shipments: list, direction_filter: str, status_filter: list
 
     with list_col:
         st.markdown('<div class="section-title">📦 Active Shipments</div>', unsafe_allow_html=True)
-        for idx, s in enumerate(filtered):
+
+        # 선택된 선적이 있으면 맨 위로 정렬
+        display_shipments = list(filtered)
+        if selected_hbl_from_list:
+            selected_ship = [s for s in display_shipments if s.get("hbl") == selected_hbl_from_list]
+            other_ships = [s for s in display_shipments if s.get("hbl") != selected_hbl_from_list]
+            display_shipments = selected_ship + other_ships
+            if selected_ship:
+                st.markdown(f'<div style="background:#dbeafe;border:1px solid #3b82f6;border-radius:8px;padding:0.5rem 1rem;margin-bottom:0.5rem;text-align:center;font-size:0.8rem;color:#1e40af;">🔍 <b>{selected_hbl_from_list}</b> 선적 상세</div>', unsafe_allow_html=True)
+                if st.button("✕ 선택 해제", key="clear_selection", use_container_width=True):
+                    st.session_state.pop("selected_shipment_hbl", None)
+                    st.rerun()
+
+        for idx, s in enumerate(display_shipments):
             alert_class = " alert" if s.get("has_issue") else ""
             badge = get_status_badge(s.get("status_type", ""), s.get("status_en", ""))
             # HTML 특수문자 이스케이프
