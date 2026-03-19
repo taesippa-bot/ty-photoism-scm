@@ -1092,7 +1092,44 @@ def render_upload_page(shipments: list) -> list:
 # ──────────────────────────────────────────────
 # 대시보드 메인 페이지
 # ──────────────────────────────────────────────
+def sync_milestones_with_status(shipments: list) -> list:
+    """status_type에 따라 마일스톤 상태를 자동 동기화"""
+    today = datetime.now().strftime("%Y-%m-%d")
+    for s in shipments:
+        st_type = s.get("status_type", "transit")
+        milestones = s.get("milestones", [])
+        if not milestones:
+            continue
+        if st_type == "completed":
+            for ms in milestones:
+                ms["status"] = "completed"
+                if ms["date"] in ("TBD", "미정", ""):
+                    ms["date"] = today
+        elif st_type == "delayed":
+            for j, ms in enumerate(milestones):
+                name_lower = ms["name"].lower()
+                if any(kw in name_lower for kw in ["booking", "etd", "on board", "출발", "선적", "eta", "도착"]):
+                    ms["status"] = "completed"
+                elif "customs" in name_lower or "통관" in name_lower:
+                    ms["status"] = "delayed"
+                    if ms["date"] in ("TBD", "미정", ""):
+                        ms["date"] = today
+                elif "delivery" in name_lower or "배송" in name_lower:
+                    ms["status"] = "pending"
+        elif st_type == "transit":
+            for j, ms in enumerate(milestones):
+                name_lower = ms["name"].lower()
+                if any(kw in name_lower for kw in ["booking", "etd", "on board", "출발", "선적"]):
+                    ms["status"] = "completed"
+                elif "eta" in name_lower or "도착" in name_lower:
+                    ms["status"] = "active"
+                else:
+                    ms["status"] = "pending"
+    return shipments
+
+
 def render_dashboard(shipments: list, direction_filter: str, status_filter: list):
+    shipments = sync_milestones_with_status(shipments)
     filtered = filter_shipments(shipments, direction_filter, status_filter)
 
     st.markdown("""
