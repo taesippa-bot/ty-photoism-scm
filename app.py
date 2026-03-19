@@ -67,14 +67,52 @@ def find_port_coords(port_text: str) -> list:
 
 
 def load_shipments() -> list:
-    """JSON 파일에서 선적 데이터 로드. 없으면 기본 데이터 생성."""
+    """JSON 파일에서 선적 데이터 로드. 없으면 기본 데이터 생성. 마일스톤 자동 동기화."""
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+        # status_type에 따라 마일스톤 자동 동기화
+        return _sync_milestones(data)
     # 초기 더미 데이터
     default_data = get_default_shipments()
     save_shipments(default_data)
     return default_data
+
+
+def _sync_milestones(shipments: list) -> list:
+    """status_type에 따라 마일스톤 상태를 자동 동기화"""
+    today = datetime.now().strftime("%Y-%m-%d")
+    for s in shipments:
+        st_type = s.get("status_type", "transit")
+        milestones = s.get("milestones", [])
+        if not milestones:
+            continue
+        if st_type == "completed":
+            for ms in milestones:
+                ms["status"] = "completed"
+                if ms.get("date") in ("TBD", "미정", "", None):
+                    ms["date"] = today
+        elif st_type == "delayed":
+            for ms in milestones:
+                name_lower = ms["name"].lower()
+                if any(kw in name_lower for kw in ["booking", "etd", "on board", "출발", "선적", "eta", "도착예정", "도착"]):
+                    ms["status"] = "completed"
+                elif "customs" in name_lower or "통관" in name_lower:
+                    ms["status"] = "delayed"
+                    if ms.get("date") in ("TBD", "미정", "", None):
+                        ms["date"] = today
+                elif "delivery" in name_lower or "배송" in name_lower:
+                    ms["status"] = "pending"
+        elif st_type == "transit":
+            for ms in milestones:
+                name_lower = ms["name"].lower()
+                if any(kw in name_lower for kw in ["booking", "etd", "on board", "출발", "선적"]):
+                    ms["status"] = "completed"
+                elif "eta" in name_lower or "도착" in name_lower:
+                    ms["status"] = "active"
+                else:
+                    ms["status"] = "pending"
+    return shipments
 
 
 def save_shipments(shipments: list) -> None:
@@ -1092,44 +1130,8 @@ def render_upload_page(shipments: list) -> list:
 # ──────────────────────────────────────────────
 # 대시보드 메인 페이지
 # ──────────────────────────────────────────────
-def sync_milestones_with_status(shipments: list) -> list:
-    """status_type에 따라 마일스톤 상태를 자동 동기화"""
-    today = datetime.now().strftime("%Y-%m-%d")
-    for s in shipments:
-        st_type = s.get("status_type", "transit")
-        milestones = s.get("milestones", [])
-        if not milestones:
-            continue
-        if st_type == "completed":
-            for ms in milestones:
-                ms["status"] = "completed"
-                if ms["date"] in ("TBD", "미정", ""):
-                    ms["date"] = today
-        elif st_type == "delayed":
-            for j, ms in enumerate(milestones):
-                name_lower = ms["name"].lower()
-                if any(kw in name_lower for kw in ["booking", "etd", "on board", "출발", "선적", "eta", "도착"]):
-                    ms["status"] = "completed"
-                elif "customs" in name_lower or "통관" in name_lower:
-                    ms["status"] = "delayed"
-                    if ms["date"] in ("TBD", "미정", ""):
-                        ms["date"] = today
-                elif "delivery" in name_lower or "배송" in name_lower:
-                    ms["status"] = "pending"
-        elif st_type == "transit":
-            for j, ms in enumerate(milestones):
-                name_lower = ms["name"].lower()
-                if any(kw in name_lower for kw in ["booking", "etd", "on board", "출발", "선적"]):
-                    ms["status"] = "completed"
-                elif "eta" in name_lower or "도착" in name_lower:
-                    ms["status"] = "active"
-                else:
-                    ms["status"] = "pending"
-    return shipments
-
-
 def render_dashboard(shipments: list, direction_filter: str, status_filter: list):
-    shipments = sync_milestones_with_status(shipments)
+    shipments = _sync_milestones(shipments)
     filtered = filter_shipments(shipments, direction_filter, status_filter)
 
     st.markdown("""
