@@ -1,0 +1,69 @@
+[
+  {
+    "hbl": "TYL2602006",
+    "direction": "수출 (Export)",
+    "direction_key": "export",
+    "origin_country": "Incheon",
+    "dest_country": "Hochiminh",
+    "commodity": "THERMAL MASSAGER BED N4 / ELECTRIC MASSAGER E5 / THERMAL MASSAGER MAT NM-2500 / THERMAL MASSAGER NM 200",
+    "status": "해상 운송 중",
+    "status_en": "In Transit",
+    "status_type": "transit",
+    "transport_mode": "해상 (Sea)",
+    "carrier": "현대상선",
+    "vessel": "PEGASUS PROTO 2602S",
+    "origin_port": "Incheon",
+    "dest_port": "Hochiminh",
+    "origin_coords": [
+      37.4563,
+      126.5922
+    ],
+    "dest_coords": [
+      10.7769,
+      106.7009
+    ],
+    "current_coords": [
+      24.1166,
+      116.64655
+    ],
+    "weight_kg": 7020,
+    "packages": 438,
+    "incoterms": "Freight Collect",
+    "has_issue": false,
+    "issue_note": "",
+    "issue_detail": null,
+    "milestones": [
+      {
+        "name": "Booking\nConfirmed",
+        "date": "2026-03-19",
+        "status": "completed"
+      },
+      {
+        "name": "ETD\n출발",
+        "date": "FEB.10,2026",
+        "status": "completed"
+      },
+      {
+        "name": "On Board\n선적",
+        "date": "FEB.10,2026",
+        "status": "completed"
+      },
+      {
+        "name": "ETA\n도착예정",
+        "date": "TBD",
+        "status": "active"
+      },
+      {
+        "name": "Customs\n통관",
+        "date": "TBD",
+        "status": "pending"
+      },
+      {
+        "name": "Delivery\n배송",
+        "date": "TBD",
+        "status": "pending"
+      }
+    ],
+    "bl_file": "TYL2602006_BL_해상수출_FCL_.pdf"
+  }
+]

@@ -80,20 +80,10 @@ def load_shipments() -> list:
 
 
 def _sync_milestones(shipments: list) -> list:
-    """status_type에 따라 마일스톤 + 배지 상태를 자동 동기화"""
+    """status_type에 따라 마일스톤만 동기화 (배지는 건드리지 않음)"""
     today = datetime.now().strftime("%Y-%m-%d")
-    status_labels = {
-        "transit": {"status": "해상 운송 중", "status_en": "In Transit"},
-        "delayed": {"status": "통관 지연", "status_en": "Customs Delayed"},
-        "completed": {"status": "도착 완료", "status_en": "Delivered"},
-    }
     for s in shipments:
         st_type = s.get("status_type", "transit")
-
-        # 배지 텍스트도 status_type에 맞게 동기화
-        if st_type in status_labels:
-            s["status_en"] = status_labels[st_type]["status_en"]
-
         milestones = s.get("milestones", [])
         if not milestones:
             continue
@@ -113,7 +103,6 @@ def _sync_milestones(shipments: list) -> list:
                 elif "delivery" in name_lower or "배송" in name_lower:
                     ms["status"] = "pending"
                 else:
-                    # Booking, ETD, On Board, ETA 등은 모두 완료
                     ms["status"] = "completed"
         elif st_type == "transit":
             for ms in milestones:
