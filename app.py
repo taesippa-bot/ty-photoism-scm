@@ -1222,15 +1222,14 @@ def render_dashboard(shipments: list, direction_filter: str, status_filter: list
     with list_col:
         st.markdown('<div class="section-title">📦 Active Shipments</div>', unsafe_allow_html=True)
 
-        # 선택된 선적이 있으면 맨 위로 정렬
+        # 선택된 선적이 있으면 해당 건만 표시
         display_shipments = list(filtered)
         if selected_hbl_from_list:
             selected_ship = [s for s in display_shipments if s.get("hbl") == selected_hbl_from_list]
-            other_ships = [s for s in display_shipments if s.get("hbl") != selected_hbl_from_list]
-            display_shipments = selected_ship + other_ships
             if selected_ship:
+                display_shipments = selected_ship
                 st.markdown(f'<div style="background:#dbeafe;border:1px solid #3b82f6;border-radius:8px;padding:0.5rem 1rem;margin-bottom:0.5rem;text-align:center;font-size:0.8rem;color:#1e40af;">🔍 <b>{selected_hbl_from_list}</b> 선적 상세</div>', unsafe_allow_html=True)
-                if st.button("✕ 선택 해제", key="clear_selection", use_container_width=True):
+                if st.button("📋 전체 목록으로 돌아가기", key="clear_selection", use_container_width=True):
                     st.session_state.pop("selected_shipment_hbl", None)
                     st.rerun()
 
